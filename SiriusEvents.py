@@ -1,33 +1,35 @@
 import telebot
 from telebot import types
-from config import TOKEN
+from flask import Flask, request
 
 import qrcode  # библиотека для генерации QR-кода для билетов
 from random import randint
 import os
 
-import requests  # подключение библиотек
-from bs4 import BeautifulSoup  # для парсинга
+from parser import parse
 
 
-def parse():
-    html = requests.get('https://parksirius.ru/').text
-    soup = BeautifulSoup(html, 'html.parser')
-    items = soup.find_all('div', class_='list-item')
+# настройка webhook
+from config import TOKEN, secret, url
 
-    events = []
-    for item in items:
-        name = item.find('div', class_='col-lg-10 col-md-9 col-sm-12 col-xs-12')
-        if name is not None:
-            events.append(name.get_text().replace('\n', ''))
-    return events
+bot = telebot.TeleBot(TOKEN, threaded=False)
+bot.remove_webhook()
+bot.set_webhook(url=url)
+
+app = Flask(__name__)
 
 
-bot = telebot.TeleBot(TOKEN)
+@app.route('/' + secret, methods=['POST'])
+def webhook():
+    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+    bot.process_new_updates([update])
+    return 'ok', 2000
+
+
 data_sirius = ''
 index_of_data = 0
 
-
+# обработчики сообщений
 @bot.message_handler(commands=['start'])
 def command_start(message):
     ID_ = message.from_user.id
@@ -42,8 +44,8 @@ def command_start(message):
 @bot.message_handler(content_types=['text'])
 def bot_message(message: types.Message):
     global data_sirius
-    ID_ = message.from_user.id
     data_sirius = parse()
+    ID_ = message.from_user.id
     if message.text == 'Просмотреть мероприятия':
         buttons = [types.InlineKeyboardButton(i[:i.index('|')], callback_data=f'{data_sirius.index(i)}') for i in data_sirius]
         menu = types.InlineKeyboardMarkup(row_width=2).add(*buttons)
@@ -103,6 +105,3 @@ def callback_inline(call):
 
     except Exception as e:
         print(repr(e))
-
-
-bot.polling()
