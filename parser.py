@@ -1,5 +1,6 @@
-import requests  # подключение библиотек
-from bs4 import BeautifulSoup  # для парсинга
+# подключение библиотек для парсинга
+import requests
+from bs4 import BeautifulSoup
 
 
 def parse():
